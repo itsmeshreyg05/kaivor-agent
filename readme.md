@@ -1,5 +1,5 @@
 # 🤖 Kaivor Agent
-### The Ultimate Cross-Platform Personal AI Assistant — By Shrey G
+### The Ultimate Cross-Platform Personal AI Assistant — By Shrey Goyal
 
 > 🚀 **Official Repository**: [itsmeshreyg05/kaivor-agent](https://github.com/itsmeshreyg05/kaivor-agent)
 
@@ -22,7 +22,7 @@ It's not just an assistant — it's an extension of your digital life.
 ### Core Features
 | Feature | Description |
 |---|---|
-| 🎙️ Wake Word | Local **"Hey Kaivor"** detection — sleeps until called, auto-sleeps after 2 min of silence, and never streams audio while asleep. Opt-in, one-click download, toggle & manual sleep/wake from the UI |
+| 🎙️ Wake Word | Local **"Hey Jarvis"** detection (stand-in for "Hey Kaivor" — see What's New below) — sleeps until called, auto-sleeps after 2 min of silence, and never streams audio while asleep. Opt-in, one-click download, toggle & manual sleep/wake from the UI |
 | ⚡ Instant Acknowledgment | Speaks a short, context-aware reply in **your language** the instant a longer task starts — no more silent waiting |
 | 🚀 Faster Live Engine | Runs on **Gemini 3.1 Flash Live** — roughly 2× faster time-to-first-word than the previous model |
 | 🧩 Self-Describing Skills | Actions and plugins share one shape (`TOOL` / `PLUGIN` dict + `run()`), auto-discovered at launch — adding or moving a skill is a single file, no core edits |
@@ -72,8 +72,10 @@ It's not just an assistant — it's an extension of your digital life.
 
 Kaivor Agent is about making KAIVOR **hands-free, faster, and easy to extend** — all universal: no hardcoded language, no bundled asset files, works the same on Windows, macOS and Linux.
 
-### 🎙️ Wake Word — "Hey Kaivor"
-KAIVOR can now sit quietly until you call it. Turn on **⚙ → WAKE WORD** (a one-click, opt-in download of a tiny local model) and it goes to sleep: the microphone is processed **only on your machine** by a local detector, and nothing is sent to the cloud until it hears **"Hey Kaivor."** Once awake it listens normally, then **auto-sleeps after 2 minutes** of silence. You can also **sleep/wake it by clicking** in the settings. Because it's a *local* gate, background chatter — *"I'm coming!"* to someone at home — never wakes it. It costs **zero** when off (the model isn't even loaded), and the detection runs in its own thread, so nothing else in the app slows down.
+### 🎙️ Wake Word — "Hey Jarvis" (stand-in for "Hey Kaivor")
+KAIVOR can now sit quietly until you call it. Turn on **⚙ → WAKE WORD** (a one-click, opt-in download of a tiny local model) and it goes to sleep: the microphone is processed **only on your machine** by a local detector, and nothing is sent to the cloud until it hears the wake phrase. Once awake it listens normally, then **auto-sleeps after 2 minutes** of silence. You can also **sleep/wake it by clicking** in the settings. Because it's a *local* gate, background chatter never wakes it. It costs **zero** when off (the model isn't even loaded), and the detection runs in its own thread, so nothing else in the app slows down.
+
+One caveat: the local wake-word engine (`openwakeword`) only ships a fixed set of pretrained phrases (alexa, hey jarvis, hey mycroft, hey rhasspy, timer, weather) — there's no "Hey Kaivor" model to download. Until a real one is trained, wake word runs on **"Hey Jarvis"** instead so the feature actually works rather than sitting broken.
 
 ### ⚡ Instant Acknowledgment
 No more silent gaps. When you ask for something that takes a moment — reading an uploaded file, a web/research search, building code — KAIVOR **immediately** says one short, natural sentence *in your language* (*"Right away — going through that file now."*) and *then* runs the tool. Instant actions (opening an app, volume) stay snappy with no chatter.
@@ -231,7 +233,7 @@ key, and access to your microphone and speakers.
 | --- | --- |
 | **OS** | Windows 10/11, macOS, or Linux |
 | **Python** | 3.11 or 3.12 |
-| **Microphone** | Required for voice interaction (and for the "Hey Kaivor" wake word) |
+| **Microphone** | Required for voice interaction (and for the "Hey Jarvis" wake word) |
 | **Speakers** | Required for voice replies |
 | **API Key** | Free Gemini API key (entered on first launch → `config/api_keys.json`) |
 | **Wake word** *(optional)* | One-click download from ⚙ → WAKE WORD (`openwakeword`, a few MB, fully local) |
@@ -280,7 +282,7 @@ kaivor-agent/
 │   ├── audio_devices.py      # Microphone / speaker list — filtered, measured, resolved by name
 │   ├── plugin_loader.py      # Plugin engine — discovery, validation, crash isolation
 │   ├── action_loader.py      # Bundled-action engine — the built-in twin of plugin_loader
-│   └── wake_word.py          # Local "Hey Kaivor" detector — own thread, offline, opt-in
+│   └── wake_word.py          # Local wake-word detector ("Hey Jarvis" stand-in for "Hey Kaivor") — own thread, offline, opt-in
 └── config/
     └── api_keys.json         # API key, OS setting, assistant name, user name, voice, UI colour, toggles
 ```

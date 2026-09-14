@@ -6,8 +6,9 @@ packages in requirements.txt carry `sys_platform` markers, so a macOS or Linux
 user never pulls Windows-only libraries (and vice-versa). Then it fetches the
 Playwright browsers needed for web automation (current-OS builds only).
 
-The optional local wake word ("Hey Kaivor") is NOT installed here — it's a
-one-click, opt-in download from ⚙ → WAKE WORD inside the app.
+The optional local wake word (runs on "Hey Jarvis" as a stand-in for "Hey
+Kaivor" — see core/wake_word.py) is NOT installed here — it's a one-click,
+opt-in download from ⚙ → WAKE WORD inside the app.
 """
 import platform
 import subprocess
@@ -65,7 +66,7 @@ def main() -> None:
     print("\n✅ Setup complete!")
     print("   1) Launch it:  python main.py")
     print("   2) Paste your free Gemini API key when the setup screen appears.")
-    print("   3) (Optional) Enable 'Hey Kaivor' from ⚙ → WAKE WORD.")
+    print("   3) (Optional) Enable wake word ('Hey Jarvis') from ⚙ → WAKE WORD.")
 
 
 if __name__ == "__main__":

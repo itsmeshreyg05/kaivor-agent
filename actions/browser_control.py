@@ -454,6 +454,7 @@ class _BrowserSession:
         self._loop:    asyncio.AbstractEventLoop | None = None
         self._thread:  threading.Thread | None          = None
         self._ready    = threading.Event()
+        self._start_error: Exception | None             = None
 
         self._pw:      Playwright     | None = None
         self._context: BrowserContext | None = None
@@ -462,6 +463,8 @@ class _BrowserSession:
     def start(self):
         if self._thread and self._thread.is_alive():
             return
+        self._start_error = None
+        self._ready.clear()
         self._thread = threading.Thread(
             target=self._run_loop,
             daemon=True,
@@ -469,19 +472,34 @@ class _BrowserSession:
         )
         self._thread.start()
         self._ready.wait(timeout=20)
+        if not self._ready.is_set():
+            raise RuntimeError("Playwright browser session did not start within 20 seconds.")
+        if self._start_error:
+            raise RuntimeError(f"Could not initialize Playwright: {self._start_error}") from self._start_error
 
     def _run_loop(self):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._async_init())
-        self._ready.set()
-        self._loop.run_forever()
+        try:
+            self._loop.run_until_complete(self._async_init())
+        except Exception as exc:
+            self._start_error = exc
+        finally:
+            self._ready.set()
+        if not self._start_error:
+            self._loop.run_forever()
 
     async def _async_init(self):
         self._pw = await async_playwright().start()
 
     def run(self, coro, timeout: int = 60) -> str:
+        if self._start_error:
+            if hasattr(coro, "close"):
+                coro.close()
+            raise RuntimeError(f"Playwright is unavailable: {self._start_error}") from self._start_error
         if not self._loop:
+            if hasattr(coro, "close"):
+                coro.close()
             raise RuntimeError(f"Session for '{self.browser_name}' not started.")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result(timeout=timeout)

@@ -1,5 +1,5 @@
 """
-Local wake-word detection for KAIVOR ("Hey Kaivor").
+Local wake-word detection for KAIVOR.
 
 Design goals:
   • ZERO cost when the feature is off — openwakeword is imported ONLY inside
@@ -13,7 +13,17 @@ Design goals:
     network call except the one-time model download the user triggers from the UI.
 
 openwakeword ships small ONNX models (a few MB each) and runs comfortably on a
-CPU. The pretrained wake phrase used here is "Hey Kaivor".
+CPU.
+
+NOTE on the wake phrase: openwakeword's pretrained catalog only ships 6 fixed
+English phrases — alexa, hey_mycroft, hey_jarvis, hey_rhasspy, timer, weather
+(see `openwakeword.MODELS`). There is no "Hey Kaivor" model, and openwakeword
+cannot download or synthesize one — a custom phrase only exists after running
+openwakeword's separate synthetic-speech training pipeline and dropping the
+resulting hey_kaivor.onnx into its models dir. Until that's trained, this uses
+"hey_jarvis" as a working stand-in so the feature isn't just dead — every
+user-facing string that names the phrase is driven by WAKE_PHRASE below, so
+swapping in a real "Hey Kaivor" model later is a one-line change.
 """
 from __future__ import annotations
 
@@ -24,8 +34,10 @@ import threading
 from pathlib import Path
 from typing import Callable
 
-# Pretrained openwakeword model that listens for "Hey Kaivor".
-WAKE_MODEL = "hey_kaivor"
+# Stand-in pretrained model — see the module docstring for why this isn't
+# "hey_kaivor" yet. WAKE_PHRASE is the human-readable form shown in the UI/logs.
+WAKE_MODEL  = "hey_jarvis"
+WAKE_PHRASE = "Hey Jarvis"
 # Score in [0,1]; above this counts as a detection. Tunable per environment.
 DEFAULT_THRESHOLD = 0.5
 # Mic frames arrive at 16 kHz int16; this is just the detector's input rate.
@@ -137,7 +149,7 @@ class WakeWordDetector:
         self._ready = True
         self._thread = threading.Thread(target=self._loop, daemon=True, name="WakeWordThread")
         self._thread.start()
-        self._logger("Wake word: listening for 'Hey Kaivor'.")
+        self._logger(f"Wake word: listening for '{WAKE_PHRASE}'.")
         return True
 
     def stop(self) -> None:
@@ -178,9 +190,11 @@ class WakeWordDetector:
                 scores = self._model.predict(np.asarray(frame, dtype=np.int16))
                 score = 0.0
                 if isinstance(scores, dict):
-                    # match the kaivor model regardless of exact key suffix
+                    # match the configured wake model regardless of exact key
+                    # suffix (e.g. "hey_jarvis" vs "hey_jarvis_v0.1")
+                    match_token = WAKE_MODEL.rsplit("_", 1)[-1].lower()
                     for k, v in scores.items():
-                        if "kaivor" in k.lower():
+                        if match_token in k.lower():
                             score = max(score, float(v))
                     if score == 0.0 and scores:
                         score = max(float(v) for v in scores.values())

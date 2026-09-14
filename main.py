@@ -78,6 +78,7 @@ from core                      import audio_devices
 from core.action_loader        import discover_actions
 from core.wake_word            import (
     WakeWordDetector, is_ready as wake_is_ready, install_and_download as wake_install,
+    WAKE_PHRASE,
 )
 
 # How long the assistant stays awake with no user speech before it auto-sleeps
@@ -457,7 +458,7 @@ class KaivorLive:
         return True
 
     def _on_wake_detected(self) -> None:
-        """Called from the detector thread when 'Hey Kaivor' is heard."""
+        """Called from the detector thread when the wake phrase is heard."""
         self.wake(reason="wake word")
 
     def wake(self, reason: str = "wake word") -> None:
@@ -476,7 +477,7 @@ class KaivorLive:
         self._awake = False
         self.set_speaking(False)
         self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Hey Kaivor' to wake me.")
+        self.ui.write_log(f"SYS: Sleeping — {reason}. Say '{WAKE_PHRASE}' to wake me.")
 
     async def _run_sleep_watch(self) -> None:
         """Auto-sleep after the configured silence window (wake-word mode only)."""
@@ -615,9 +616,9 @@ class KaivorLive:
             return
         # Respect wake-word sleep: a typed command must not be answered while
         # asleep either (the sleep gate is not just for the mic). Wake first with
-        # "Hey Kaivor" or the WAKE NOW button.
+        # the wake phrase or the WAKE NOW button.
         if self._wake_enabled and not self._awake:
-            self.ui.write_log("SYS: I'm asleep — say 'Hey Kaivor' or tap WAKE NOW first.")
+            self.ui.write_log(f"SYS: I'm asleep — say '{WAKE_PHRASE}' or tap WAKE NOW first.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
@@ -1602,12 +1603,21 @@ class KaivorLive:
                         self.ui.write_log("SYS: Reconnected — conversation restored.")
 
                     # Wake word: if enabled, come up ASLEEP (mic gated, silent)
-                    # until the user says "Hey Kaivor" or taps wake in the UI.
-                    if self._wake_enabled:
-                        self._ensure_wake_detector()
+                    # until the user says the wake phrase or taps wake in the UI.
+                    # If the detector itself failed to load (e.g. missing/broken
+                    # model), sleeping would strand the mic closed with nothing
+                    # able to reopen it except the manual UI button — so fail
+                    # OPEN instead: stay awake and turn wake-word mode off.
+                    if self._wake_enabled and self._ensure_wake_detector():
                         self._awake = False
                         self.ui.set_state("SLEEPING")
-                        self.ui.write_log("SYS: KAIVOR online — sleeping. Say 'Hey Kaivor' to wake me.")
+                        self.ui.write_log(f"SYS: KAIVOR online — sleeping. Say '{WAKE_PHRASE}' to wake me.")
+                    elif self._wake_enabled:
+                        self._wake_enabled = False
+                        save_wake_word_enabled(False)
+                        self._awake = True
+                        self.ui.set_state("LISTENING")
+                        self.ui.write_log("SYS: Wake word unavailable — continuing without it.")
                     else:
                         self._awake = True
                         self.ui.set_state("LISTENING")

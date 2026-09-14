@@ -1,6 +1,7 @@
 #web_search.py
 import json
 import sys
+from urllib.parse import quote_plus
 from pathlib import Path
 
 def _get_base_dir() -> Path:
@@ -45,13 +46,62 @@ def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
     except ImportError:
         from duckduckgo_search import DDGS
 
+    try:
+        results = []
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=max_results):
+                results.append({
+                    "title":   r.get("title",  ""),
+                    "snippet": r.get("body",   ""),
+                    "url":     r.get("href",   ""),
+                })
+        if results:
+            return results
+        print("[WebSearch] DDG returned no results — trying HTML endpoint")
+    except Exception as exc:
+        print(f"[WebSearch] DDG client failed ({exc}) — trying HTML endpoint")
+
+    # The DDG Python package has changed names and transport behavior several
+    # times. Keep a dependency-light fallback for environments where its API or
+    # TLS transport is unavailable.
+    import requests
+    from bs4 import BeautifulSoup
+
+    response = requests.get(
+        "https://www.bing.com/search?q=" + quote_plus(query),
+        headers={"User-Agent": "Mozilla/5.0"}, timeout=15,
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
     results = []
-    with DDGS() as ddgs:
-        for r in ddgs.text(query, max_results=max_results):
+    for item in soup.select("li.b_algo")[:max_results]:
+        heading = item.select_one("h2")
+        link = heading.find("a") if heading else None
+        if link and link.get("href", "").startswith("http"):
+            snippet = item.select_one(".b_caption p")
             results.append({
-                "title":   r.get("title",  ""),
-                "snippet": r.get("body",   ""),
-                "url":     r.get("href",   ""),
+                "title": heading.get_text(" ", strip=True),
+                "snippet": snippet.get_text(" ", strip=True) if snippet else "",
+                "url": link.get("href", ""),
+            })
+    if results:
+        return results
+
+    # Some networks allow Google while blocking the other HTML endpoints.
+    response = requests.get(
+        "https://www.google.com/search?q=" + quote_plus(query),
+        headers={"User-Agent": "Mozilla/5.0"}, timeout=15,
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    for heading in soup.select("h3")[:max_results]:
+        link = heading.find_parent("a")
+        if link and link.get("href", "").startswith("http"):
+            item = heading.find_parent()
+            results.append({
+                "title": heading.get_text(" ", strip=True),
+                "snippet": item.get_text(" ", strip=True) if item else "",
+                "url": link.get("href", ""),
             })
     return results
 

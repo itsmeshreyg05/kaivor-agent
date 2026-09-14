@@ -4116,6 +4116,11 @@ class MainWindow(QMainWindow):
         self._update_brief_btn(new_val)
 
     # ── Wake word settings ───────────────────────────────────────────────────
+    # openwakeword has no "Hey Kaivor" pretrained model (it only ships
+    # alexa/hey_mycroft/hey_jarvis/hey_rhasspy/timer/weather), so this runs on
+    # "Hey Jarvis" (core.wake_word.WAKE_PHRASE) as a working stand-in until a
+    # real hey_kaivor.onnx is trained — see core/wake_word.py.
+    _WAKE_WORD_AVAILABLE = True
 
     def _wake_state(self) -> dict:
         """Combined state for the two wake-word buttons. Readiness is a cheap,
@@ -4142,6 +4147,18 @@ class MainWindow(QMainWindow):
     def _refresh_wake_btns(self):
         if not hasattr(self, '_wake_btn'):
             return
+        if not self._WAKE_WORD_AVAILABLE:
+            self._wake_btn.setText("🎙  WAKE WORD: UNAVAILABLE")
+            self._wake_btn.setEnabled(False)
+            self._wake_btn.setToolTip(
+                "Not available yet — the local wake-word engine has no 'Hey Kaivor' "
+                "model to download. Coming in a future update.")
+            self._wake_sleep_btn.hide()
+            return
+        from core.wake_word import WAKE_PHRASE
+        self._wake_btn.setToolTip(
+            f"Runs on '{WAKE_PHRASE}' for now — a stand-in until a real "
+            "'Hey Kaivor' model is trained.")
         st = self._wake_state()
         _on = f"""
             QPushButton {{ background: #001a08; color: {C.GREEN};
@@ -4170,6 +4187,8 @@ class MainWindow(QMainWindow):
             self._wake_sleep_btn.hide()
 
     def _toggle_wake_word(self):
+        if not self._WAKE_WORD_AVAILABLE:
+            return
         st = self._wake_state()
         if not st["ready"]:
             # First time: download openwakeword + model in a worker thread.
